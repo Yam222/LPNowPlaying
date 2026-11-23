@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>LP Now Playing 2</title>
+<style>
+  :root {
+    --bg: #0f1015; --panel: #171820; --panel2: #1e2029; --line: rgba(255,255,255,.07);
+    --text: #f2f3f7; --muted: #9a9daa; --accent: #ff4e45; --ok: #3ddc84; --warn: #ffb547;
+    --font: "Pretendard", "Malgun Gothic", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.5 var(--font); user-select: none; }
+  body { padding: 18px 18px 22px; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .logo { width: 38px; height: 38px; border-radius: 50%; flex: none; position: relative;
+    background: repeating-radial-gradient(circle, #111 0 1.2px, #22232a 1.2px 2.6px); box-shadow: 0 4px 14px rgba(0,0,0,.5); }
+  .logo::after { content: ""; position: absolute; inset: 31%; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1px rgba(0,0,0,.5); }
+  .running .logo { animation: spin 1.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  header h1 { font-size: 17px; margin: 0; font-weight: 800; letter-spacing: -.01em; }
+  header .sub { color: var(--muted); font-size: 12px; }
+  .pill { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 99px; background: var(--panel2); font-size: 12px; color: var(--muted); }
+  .pill i { width: 8px; height: 8px; border-radius: 50%; background: #5a5d68; }
+  .running .pill { color: var(--text); }
+  .running .pill i { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+
+  .power { width: 100%; padding: 14px; border: 0; border-radius: 14px; font-size: 16px; font-weight: 800; letter-spacing: .02em;
+    background: linear-gradient(135deg, #ff5a4f, #e0362e); box-shadow: 0 8px 24px rgba(255,78,69,.28); transition: transform .1s, filter .2s; }
+  .power:hover { filter: brightness(1.08); }
+  .power:active { transform: scale(.985); }
+  .running .power { background: var(--panel2); box-shadow: none; border: 1px solid var(--line); }
+  .error { margin-top: 8px; color: #ff8a84; font-size: 12px; }
+
+  .now { margin: 14px 0; display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); min-height: 74px; }
+  .art { width: 50px; height: 50px; border-radius: 50%; flex: none; background: #22232b center/cover; box-shadow: 0 0 0 3px #0b0b0e, 0 0 0 4px rgba(255,255,255,.06); }
+  .playing .art { animation: spin 1.8s linear infinite; }
+  .now .t { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .now .a { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .now .meta { min-width: 0; flex: 1; }
+  .conn { font-size: 11px; margin-top: 2px; color: var(--muted); }
+  .conn b { font-weight: 600; }
+  .conn .ok { color: var(--ok); } .conn .warn { color: var(--warn); }
+
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 4px 14px; margin-bottom: 12px; }
+  section h2 { font-size: 11px; letter-spacing: .14em; color: var(--muted); margin: 12px 0 4px; font-weight: 700; }
+  .opt { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+  section h2 + .opt { border-top: 0; }
+  .opt .lbl { flex: 1; min-width: 0; }
+  .opt .lbl b { display: block; font-weight: 600; }
+  .opt .lbl span { color: var(--muted); font-size: 12px; }
+  .sub-row { display: flex; gap: 6px; align-items: center; margin: -2px 0 10px; }
+  .sub-row.hide { display: none; }
+  .url { flex: 1; min-width: 0; padding: 7px 9px; border-radius: 8px; background: #0c0d11; border: 1px solid var(--line); font: 11.5px "Cascadia Mono", Consolas, monospace; color: #d6d8e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: text; }
+  .btn { padding: 6px 11px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel2); font-size: 12px; white-space: nowrap; }
+  .btn:hover { background: #262833; }
+  .btn.primary { background: rgba(255,78,69,.15); border-color: rgba(255,78,69,.4); color: #ffb3ae; }
+  select { font: inherit; font-size: 12px; color: var(--text); background: #0c0d11; border: 1px solid var(--line); border-radius: 8px; padding: 5px 6px; }
+  .wstat { font-size: 12px; color: var(--muted); flex: 1; }
+  .hintx { color: #6f7280; font-size: 11px; }
+  .wstat .ok { color: var(--ok); } .wstat .warn { color: var(--warn); }
+
+  /* 토글 */
+  .tg { position: relative; width: 40px; height: 22px; flex: none; }
+  .tg input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .tg span { position: absolute; inset: 0; border-radius: 99px; background: #34363f; transition: .2s; cursor: pointer; }
+  .tg span::after { content: ""; position: absolute; left: 3px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: .2s; }
+  .tg input:checked + span { background: var(--accent); }
+  .tg input:checked + span::after { transform: translateX(18px); }
+
+  .seg { display: flex; background: #0c0d11; border: 1px solid var(--line); border-radius: 10px; padding: 3px; margin: 4px 0 12px; }
+  .seg button { flex: 1; border: 0; background: transparent; padding: 7px 4px; border-radius: 7px; color: var(--muted); font-size: 12.5px; }
+  .seg button.on { background: var(--panel2); color: var(--text); font-weight: 700; box-shadow: 0 1px 0 rgba(255,255,255,.05) inset; }
+  .note { color: var(--muted); font-size: 12px; margin: -6px 0 12px; }
+
+  .steps { margin: 2px 0 12px; padding-left: 18px; color: var(--muted); font-size: 12px; }
+  .steps b { color: var(--text); font-weight: 600; }
+  .toast { position: fixed; left: 50%; bottom: 18px; transform: translate(-50%, 20px); opacity: 0; background: #2a2c36; padding: 8px 14px; border-radius: 10px; font-size: 12px; transition: .25s; pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  input[type=number] { width: 64px; font: inherit; font-size: 12px; color: var(--text); background: #0c0d11; border: 1px solid var(--line); border-radius: 8px; padding: 5px 6px; }
+  input[type=range] { flex: 1; accent-color: var(--accent); }
+  .grid2 { display: grid; grid-template-columns: auto 1fr; gap: 8px 10px; align-items: center; margin: 2px 0 12px; }
+  .grid2 > span { color: var(--muted); font-size: 12px; }
+  .grid2 > div { display: flex; gap: 6px; align-items: center; }
+  .kbd { display: inline-block; padding: 1px 6px; border-radius: 5px; background: #2a2c36; border: 1px solid #3a3d48; font-size: 11px; color: #ddd; }
+  .val { color: var(--muted); font-size: 12px; width: 40px; text-align: right; }
+  .help { color: var(--muted); font-size: 11.5px; line-height: 1.9; padding: 10px 0 12px; border-top: 1px solid var(--line); }
+  .help b { color: #c9cbd4; font-weight: 600; }
+  .warnbox { margin-top: 6px; color: var(--warn); font-size: 12px; line-height: 1.5; }
+  .lastcmd { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: #0c0d11; border: 1px solid var(--line); font-size: 12px; line-height: 1.5; color: var(--muted); }
+  .lastcmd .ok { color: var(--ok); } .lastcmd .warn { color: var(--warn); }
+</style>
+</head>
+<body>
+  <header>
+    <div class="logo"></div>
+    <div><h1>LP Now Playing 2</h1><div class="sub">YouTube · YouTube Music 재생 정보 표시</div></div>
+    <div class="pill"><i></i><span id="pillText">중지됨</span></div>
+  </header>
+
+  <button class="power" id="power">시작</button>
+  <div class="error" id="error" hidden></div>
+
+  <div class="now" id="now">
+    <div class="art" id="art"></div>
+    <div class="meta">
+      <div class="t" id="nt">재생 정보 없음</div>
+      <div class="a" id="na">[시작]을 누르면 YouTube를 인식해요</div>
+      <div class="conn" id="conn"></div>
+    </div>
+  </div>
+
+  <section>
+    <h2>화면 오버레이</h2>
+    <div class="opt">
+      <div class="lbl"><b>다른 프로그램 위에 항상 표시</b><span>게임·영상 위에도 강제로 띄워요 (클릭은 통과)</span></div>
+      <label class="tg"><input type="checkbox" id="ov"><span></span></label>
+    </div>
+    <div id="ovBox">
+      <div class="sub-row">
+        <div class="wstat" id="ovStat"></div>
+        <button class="btn" id="ovToggle">숨기기</button>
+      </div>
+      <div class="grid2">
+        <span>모니터</span><div><select id="ovMon" style="flex:1"></select></div>
+        <span>위치</span><div>
+          <select id="ovPos"><option value="br">오른쪽 아래</option><option value="bl">왼쪽 아래</option><option value="tr">오른쪽 위</option><option value="tl">왼쪽 위</option></select>
+          <span class="wstat" style="flex:none;margin-left:6px">크기</span>
+          <select id="ovScale"><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select>
+        </div>
+        <span>여백</span><div>
+          가로 <input type="number" id="ovMX" min="0" max="2000" step="4"> 세로 <input type="number" id="ovMY" min="0" max="2000" step="4"> <span class="hintx">px</span>
+        </div>
+        <span>불투명도</span><div><input type="range" id="ovOp" min="20" max="100" step="5"><span class="val" id="ovOpV"></span></div>
+      </div>
+      <div class="opt">
+        <div class="lbl"><b>계속 맨 위로 올리기</b><span>다른 "항상 위" 창이 덮어도 다시 위로 올라와요</span></div>
+        <label class="tg"><input type="checkbox" id="ovTop"><span></span></label>
+      </div>
+      <div class="opt">
+        <div class="lbl"><b>녹화·방송 화면에서 숨기기</b><span>내 모니터에만 보이고 OBS 화면 캡처·녹화에는 안 찍혀요</span></div>
+        <label class="tg"><input type="checkbox" id="ovNoCap"><span></span></label>
+      </div>
+      <div class="help">
+        <b>조작</b> — LP판 <b>클릭</b>: 재생/정지 · <b>돌리기</b>: 시계방향 앞으로 / 반대 뒤로 (손을 떼면 이동) · <b>휠</b>: 5초 · 카드 오른쪽 아래 ⏮ ⏭ 버튼<br>
+        <b>단축키</b> — <span class="kbd">Ctrl</span>+<span class="kbd">Alt</span>+<span class="kbd">←</span>/<span class="kbd">→</span> 이전·다음 곡 · <span class="kbd">Ctrl</span>+<span class="kbd">Alt</span>+<span class="kbd">L</span> 숨기기
+        <div id="hkWarn" class="warnbox" hidden></div>
+        <div class="lastcmd" id="lastCmd"></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>OBS 브라우저 소스</h2>
+    <div class="opt">
+      <div class="lbl"><b>OBS 브라우저 소스</b><span>방송 화면에만 LP 표시</span></div>
+      <label class="tg"><input type="checkbox" id="obs"><span></span></label>
+    </div>
+    <div id="obsBox">
+      <div class="sub-row">
+        <div class="url" id="obsUrl"></div>
+        <button class="btn primary" id="copyObs">복사</button>
+        <button class="btn" id="preview">미리보기</button>
+      </div>
+      <div class="sub-row">
+        <span class="wstat">위치</span>
+        <select id="obsPos"><option value="br">오른쪽 아래</option><option value="bl">왼쪽 아래</option><option value="tr">오른쪽 위</option><option value="tl">왼쪽 위</option></select>
+        <span class="wstat" style="flex:none">크기</span>
+        <select id="obsScale"><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select>
+      </div>
+      <div class="sub-row"><div class="wstat" id="obsConn"></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>음악 소스</h2>
+    <div class="opt">
+      <div class="lbl"><b>YouTube · YouTube Music</b><span>크롬/엣지 확장 프로그램으로 인식</span></div>
+    </div>
+    <div class="sub-row"><div class="wstat" id="extConn"></div></div>
+  </section>
+
+  <section>
+    <h2>여러 탭에서 재생 중일 때</h2>
+    <div class="seg" id="rule">
+      <button data-v="playingFirst">재생 중인 탭 우선</button>
+      <button data-v="firstTab">항상 첫 번째 탭</button>
+    </div>
+    <div class="note" id="ruleNote"></div>
+  </section>
+
+  <section>
+    <h2>표시 · 실행</h2>
+    <div class="grid2" style="margin-top:6px">
+      <span>배경 투명도</span><div><input type="range" id="bgT" min="0" max="100" step="5"><span class="val" id="bgTV"></span></div>
+      <span>앨범 색 강조</span><div><input type="range" id="acc" min="0" max="150" step="10"><span class="val" id="accV"></span></div>
+    </div>
+    <div class="note" style="margin-top:-4px">배경 투명도 0% = 기본 카드, 100% = 배경 없이 글자와 LP판만 · 앨범 색 강조 0% = 색 없음, 100% = 기본</div>
+    <div class="opt">
+      <div class="lbl"><b>링크 표시</b><span>youtu.be/… · music.youtube.com/… 줄</span></div>
+      <label class="tg"><input type="checkbox" id="showLink"><span></span></label>
+    </div>
+    <div class="opt">
+      <div class="lbl"><b>LP판 회전 속도</b><span>한 바퀴 도는 속도</span></div>
+      <select id="spin">
+        <option value="slow">아주 느리게</option><option value="normal">느리게 (기본)</option>
+        <option value="fast">보통</option><option value="real">실제 LP (빠름)</option>
+      </select>
+    </div>
+    <div class="opt">
+      <div class="lbl"><b>실행하면 바로 시작</b><span>프로그램을 켜자마자 자동으로 시작</span></div>
+      <label class="tg"><input type="checkbox" id="autoStart"><span></span></label>
+    </div>
+  </section>
+
+  <section>
+    <h2>처음 한 번만: 크롬 확장 프로그램</h2>
+    <ol class="steps">
+      <li>아래 버튼으로 확장 프로그램 폴더를 꺼내요 (경로가 복사돼요)</li>
+      <li>크롬 주소창에 <b>chrome://extensions</b> → 오른쪽 위 <b>개발자 모드</b> 켜기</li>
+      <li><b>압축해제된 확장 프로그램을 로드합니다</b> → 꺼낸 폴더 선택</li>
+      <li>예전 LP Now Playing(1.x) 확장 프로그램이 있으면 <b>삭제</b>해 주세요</li>
+    </ol>
+    <div class="sub-row"><button class="btn primary" id="exportExt" style="flex:1;padding:9px">확장 프로그램 폴더 꺼내기</button></div>
+  </section>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  // 브라우저에서 화면만 확인할 때 쓰는 가짜 데이터 (실제 프로그램에서는 Go 쪽 함수가 연결됨)
+  if (typeof window.lpGetState !== 'function') {
+    const mock = { running: true, connected: true, lastError: '', obsUrl: 'http://127.0.0.1:47800/overlay?target=obs',
+      appVersion: '2.1.4', extVersion: '2.1.4', extLatest: '2.1.4', obsClient: { seen: false }, lastCmd: { type: 'toggle', state: 'done', agoSec: 0.4 },
+      overlay: { shown: true, userHidden: false, hotkey: true, hotkeyFailed: ['Ctrl+Alt+←', 'Ctrl+Alt+→'], monitors: [{ index: 1, name: '모니터 1 (주 모니터) · 2560×1440', primary: true }, { index: 2, name: '모니터 2 · 1920×1080' }] },
+      settings: { port: 47800, tabRule: 'playingFirst', showLink: true, autoStart: false, spinSpeed: 'normal',
+        overlay: true, overlayPos: 'br', overlayMonitor: 0, overlayScale: 1, overlayMarginX: 24, overlayMarginY: 56, overlayOpacity: 1,
+        overlayHideCapture: false, overlayTopmost: true, obs: false, obsPos: 'br', obsScale: 1, bgTransparency: 0.3, accentStrength: 1.2 },
+      now: { hasTrack: true, title: 'Love wins all', artist: 'IU(아이유)', playing: true, artwork: '', tabCount: 2, isAd: false, source: 'youtube', pageVer: '2.1.4' } };
+    Object.assign(window, {
+      lpGetState: async () => mock, lpStart: async () => '', lpStop: async () => {}, lpSaveSettings: async (s) => { mock.settings = s; return ''; },
+      lpCopy: async () => {}, lpOpenUrl: async () => {}, lpExportExtension: async () => 'C:\\Users\\me\\AppData\\Local\\LPNowPlaying2\\chrome-extension',
+      lpToggleOverlay: async () => { mock.overlay.userHidden = !mock.overlay.userHidden; } });
+  }
+
+  const $ = (id) => document.getElementById(id);
+  let S = null, saving = false;
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const olderThan = (a, b) => {
+    const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number);
+    for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0); }
+    return false;
+  };
+
+  function toast(msg) {
+    const t = $('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  async function save(patch) {
+    S.settings = { ...S.settings, ...patch };
+    saving = true;
+    const err = await lpSaveSettings(S.settings);
+    saving = false;
+    if (err) toast(err);
+    await refresh();
+  }
+
+  function setIfIdle(el, v) { if (document.activeElement !== el) el.value = v; }
+
+  function render() {
+    const st = S.settings;
+    document.body.classList.toggle('running', S.running);
+    $('pillText').textContent = S.running ? '실행 중' : '중지됨';
+    $('power').textContent = S.running ? '중지' : '시작';
+    $('error').hidden = !S.lastError; $('error').textContent = S.lastError || '';
+
+    const n = S.now || {};
+    const srcName = n.source === 'youtube' ? 'YouTube' : 'YouTube Music';
+    $('now').classList.toggle('playing', !!(S.running && n.hasTrack && n.playing));
+    $('art').style.backgroundImage = n.hasTrack && n.artwork ? `url("${String(n.artwork).replace(/["\\]/g, encodeURIComponent)}")` : 'none';
+    if (!S.running) {
+      $('nt').textContent = '중지됨'; $('na').textContent = '[시작]을 누르면 YouTube를 인식해요'; $('conn').innerHTML = '';
+    } else if (!S.connected) {
+      $('nt').textContent = '확장 프로그램 기다리는 중';
+      $('na').textContent = 'YouTube나 YouTube Music 탭을 열어 주세요';
+      $('conn').innerHTML = '<b class="warn">● 확장 프로그램 연결 안 됨</b>';
+    } else if (!n.hasTrack) {
+      $('nt').textContent = n.isAd ? '광고 재생 중' : '재생 중인 영상 없음';
+      $('na').textContent = n.isAd ? '광고가 끝나면 다시 표시해요' : 'YouTube에서 음악을 틀어 주세요';
+      $('conn').innerHTML = `<b class="ok">● 연결됨</b> · 탭 ${n.tabCount}개`;
+    } else {
+      $('nt').textContent = n.title; $('na').textContent = n.artist || '';
+      $('conn').innerHTML = `<b class="ok">● ${srcName}</b> · 탭 ${n.tabCount}개 · ${n.playing ? '재생 중' : '일시정지'}`;
+    }
+
+    // 화면 오버레이
+    const ov = S.overlay || {};
+    $('ov').checked = st.overlay; $('ovBox').style.display = st.overlay ? '' : 'none';
+    let os;
+    if (!S.running) os = '<span>[시작]을 누르면 표시돼요</span>';
+    else if (ov.userHidden) os = '<span class="warn">숨김 상태</span> <span class="hintx">— <span class="kbd">Ctrl</span>+<span class="kbd">Alt</span>+<span class="kbd">L</span> 로 다시 보이기</span>';
+    else if (ov.shown) os = '<span class="ok">● 화면에 표시 중</span>' + (ov.hotkey ? ' <span class="hintx"><span class="kbd">Ctrl</span>+<span class="kbd">Alt</span>+<span class="kbd">L</span> 숨기기</span>' : '');
+    else os = '<span>재생 중인 곡이 생기면 표시돼요</span>';
+    $('ovStat').innerHTML = os;
+    $('ovToggle').textContent = ov.userHidden ? '보이기' : '숨기기';
+    const mons = ov.monitors || [];
+    const want = [['0', '주 모니터 (자동)']].concat(mons.map((m) => [String(m.index), m.name]));
+    const sel = $('ovMon');
+    if (sel.options.length !== want.length || [...sel.options].some((o, i) => o.value !== want[i][0] || o.text !== want[i][1])) {
+      sel.innerHTML = want.map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join('');
+    }
+    setIfIdle(sel, String(st.overlayMonitor || 0));
+    setIfIdle($('ovPos'), st.overlayPos);
+    setIfIdle($('ovScale'), String(st.overlayScale));
+    setIfIdle($('ovMX'), st.overlayMarginX);
+    setIfIdle($('ovMY'), st.overlayMarginY);
+    setIfIdle($('ovOp'), Math.round(st.overlayOpacity * 100));
+    $('ovOpV').textContent = Math.round(($('ovOp').value || 100)) + '%';
+    const hf = (ov.hotkeyFailed || []);
+    $('hkWarn').hidden = !hf.length;
+    $('hkWarn').innerHTML = hf.length ? `⚠ 다른 프로그램이 이미 쓰고 있는 단축키: <b>${hf.map(esc).join(', ')}</b><br>인텔 그래픽 화면 회전 단축키라면 인텔 그래픽 설정에서 끄면 돼요.` : '';
+    $('ovTop').checked = !!st.overlayTopmost;
+    $('ovNoCap').checked = !!st.overlayHideCapture;
+
+    // OBS
+    $('obs').checked = st.obs; $('obsBox').style.display = st.obs ? '' : 'none';
+    $('obsUrl').textContent = S.obsUrl; $('obsUrl').title = S.obsUrl;
+    setIfIdle($('obsPos'), st.obsPos); setIfIdle($('obsScale'), String(st.obsScale));
+    const oc = S.obsClient || {};
+    $('obsConn').innerHTML = !S.running ? '<span>[시작]을 누르면 연결 상태가 표시돼요</span>'
+      : (oc.seen && oc.agoSec <= 5 ? '<span class="ok">● OBS 화면 연결됨</span>' : '<span>OBS 화면 연결 대기 중</span>');
+
+    // 확장 프로그램
+    let et;
+    if (!S.running) et = '<span>[시작]을 누르면 연결 상태가 표시돼요</span>';
+    else if (!S.extVersion) et = '<span>확장 프로그램 연결 대기 중 (YouTube 탭을 열어 주세요)</span>';
+    else if (olderThan(S.extVersion, S.extLatest)) et = `<span class="warn">⚠ 예전 확장 프로그램이에요 (v${esc(S.extVersion)})</span><br><span>아래 [확장 프로그램 폴더 꺼내기] → <b>chrome://extensions</b>에서 새 버전 로드 (1.x는 삭제)</span>`;
+    else et = `<span class="ok">● 확장 프로그램 연결됨</span> <span class="hintx">v${esc(S.extVersion)}</span>`;
+    $('extConn').innerHTML = et;
+
+    // 마지막 조작: 클릭/단축키 → 프로그램 → 확장 프로그램 → YouTube 탭 중 어디까지 갔는지
+    const names = { toggle: '재생/정지', play: '재생', pause: '정지', next: '다음 곡', prev: '이전 곡', seek: '재생 위치 이동' };
+    const lc = S.lastCmd || {};
+    const nm = names[lc.type] || lc.type;
+    let lt;
+    if (!lc.type) lt = '마지막 조작: 아직 없음 — LP판을 클릭하거나 단축키를 누르면 결과가 여기에 표시돼요';
+    else if (lc.state === 'rejected') lt = `<span class="warn">⚠ ${esc(nm)}: ${esc(lc.reason)}</span>`;
+    else if (lc.state === 'done') lt = `<span class="ok">✓ ${esc(nm)} 실행됨</span>`;
+    else if (lc.state === 'queued') lt = lc.agoSec < 1.5 ? `⏳ ${esc(nm)} 보내는 중…`
+      : `<span class="warn">⚠ ${esc(nm)}: 확장 프로그램이 명령을 가져가지 않았어요</span><br>[확장 프로그램 폴더 꺼내기] → chrome://extensions에서 ↻ 새로고침 해 주세요`;
+    else lt = lc.agoSec < 2.5 ? `⏳ ${esc(nm)} 실행 중…`
+      : `<span class="warn">⚠ ${esc(nm)}: YouTube 탭에서 실행되지 않았어요</span><br>YouTube 탭을 새로고침(F5) 해 주세요`;
+    if (S.running && n.hasTrack && (!n.pageVer || olderThan(n.pageVer, S.extLatest))) {
+      lt += `<br><span class="warn">⚠ 표시 중인 YouTube 탭에 예전 스크립트가 있어요 → 탭을 새로고침(F5) 해 주세요</span>`;
+    }
+    $('lastCmd').innerHTML = lt;
+
+    for (const b of $('rule').children) b.classList.toggle('on', b.dataset.v === st.tabRule);
+    $('ruleNote').textContent = st.tabRule === 'firstTab'
+      ? '가장 먼저 연 창의 가장 왼쪽 YouTube/YouTube Music 탭을 표시해요. (영상이 없는 탭은 건너뜀)'
+      : '소리가 나는 탭을 먼저 찾고, 없으면 가장 왼쪽 탭을 표시해요.';
+    $('showLink').checked = st.showLink; $('autoStart').checked = st.autoStart;
+    setIfIdle($('spin'), st.spinSpeed || 'normal');
+    setIfIdle($('bgT'), Math.round((st.bgTransparency || 0) * 100));
+    setIfIdle($('acc'), Math.round((st.accentStrength ?? 1) * 100));
+    $('bgTV').textContent = $('bgT').value + '%';
+    $('accV').textContent = $('acc').value + '%';
+  }
+
+  async function refresh() {
+    if (saving) return;
+    try { S = await lpGetState(); render(); } catch (e) { console.error(e); }
+  }
+
+  $('power').onclick = async () => {
+    if (S.running) { await lpStop(); toast('중지했어요'); }
+    else { const err = await lpStart(); if (!err) toast('시작했어요'); }
+    refresh();
+  };
+  const num = (el, lo, hi) => Math.max(lo, Math.min(hi, parseInt(el.value, 10) || 0));
+  $('ov').onchange = (e) => save({ overlay: e.target.checked });
+  $('ovToggle').onclick = async () => { await lpToggleOverlay(); setTimeout(refresh, 300); };
+  $('ovMon').onchange = (e) => save({ overlayMonitor: parseInt(e.target.value, 10) || 0 });
+  $('ovPos').onchange = (e) => save({ overlayPos: e.target.value });
+  $('ovScale').onchange = (e) => save({ overlayScale: parseFloat(e.target.value) });
+  $('ovMX').onchange = (e) => save({ overlayMarginX: num(e.target, 0, 2000) });
+  $('ovMY').onchange = (e) => save({ overlayMarginY: num(e.target, 0, 2000) });
+  $('ovOp').oninput = (e) => { $('ovOpV').textContent = e.target.value + '%'; };
+  $('ovOp').onchange = (e) => save({ overlayOpacity: num(e.target, 20, 100) / 100 });
+  $('bgT').oninput = (e) => { $('bgTV').textContent = e.target.value + '%'; };
+  $('bgT').onchange = (e) => save({ bgTransparency: num(e.target, 0, 100) / 100 });
+  $('acc').oninput = (e) => { $('accV').textContent = e.target.value + '%'; };
+  $('acc').onchange = (e) => save({ accentStrength: num(e.target, 0, 150) / 100 });
+  $('ovTop').onchange = (e) => save({ overlayTopmost: e.target.checked });
+  $('ovNoCap').onchange = (e) => save({ overlayHideCapture: e.target.checked });
+  $('obs').onchange = (e) => save({ obs: e.target.checked });
+  $('obsPos').onchange = (e) => save({ obsPos: e.target.value });
+  $('obsScale').onchange = (e) => save({ obsScale: parseFloat(e.target.value) });
+  $('showLink').onchange = (e) => save({ showLink: e.target.checked });
+  $('autoStart').onchange = (e) => save({ autoStart: e.target.checked });
+  $('spin').onchange = (e) => save({ spinSpeed: e.target.value });
+  for (const b of $('rule').children) b.onclick = () => save({ tabRule: b.dataset.v });
+  $('copyObs').onclick = async () => { await lpCopy(S.obsUrl); toast('OBS 주소를 복사했어요'); };
+  $('preview').onclick = () => lpOpenUrl(S.obsUrl.replace('target=obs', 'target=preview'));
+  $('exportExt').onclick = async () => { const p = await lpExportExtension(); if (p) toast('폴더를 열고 경로를 복사했어요'); };
+
+  refresh();
+  setInterval(refresh, 1000);
+})();
+</script>
+</body>
+</html>

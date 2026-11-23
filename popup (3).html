@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+  body { width: 280px; margin: 0; padding: 16px; font: 13px "Malgun Gothic", "Segoe UI", system-ui, sans-serif; background: #15161b; color: #eee; }
+  h1 { font-size: 14px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+  h1 img { width: 20px; height: 20px; }
+  .row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #666; flex: none; }
+  .dot.ok { background: #3ddc84; box-shadow: 0 0 8px #3ddc84aa; }
+  .dot.bad { background: #ff5b5b; }
+  .muted { color: #9a9ca5; font-size: 12px; }
+  .cur { margin: 10px 0; padding: 10px; background: #1f2027; border-radius: 8px; word-break: break-all; }
+  details { margin-top: 10px; color: #9a9ca5; }
+  input { width: 80px; background: #0f1014; border: 1px solid #333; color: #eee; padding: 4px 6px; border-radius: 6px; }
+  button { background: #2b2d36; color: #eee; border: 0; padding: 5px 10px; border-radius: 6px; cursor: pointer; }
+</style>
+</head>
+<body>
+  <h1><img src="icon48.png" alt="">LP Now Playing 2</h1>
+  <div class="row"><span class="dot" id="dot"></span><span id="msg">확인 중…</span></div>
+  <div class="cur" id="cur" hidden></div>
+  <div class="muted" id="tabs"></div>
+  <details>
+    <summary>고급 설정</summary>
+    <div class="row">포트 <input id="port" type="number" min="1024" max="65535"> <button id="save">저장</button></div>
+    <div class="muted">프로그램 설정(settings.json)의 포트와 같아야 해요. 기본값 47800</div>
+  </details>
+  <script src="popup.js"></script>
+</body>
+</html>
